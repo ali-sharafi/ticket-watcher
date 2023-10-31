@@ -1,0 +1,16 @@
+[
+    {
+        "id":"4s5sds6d6s",
+        "origin": "THR",
+        "dest": "AZD",
+        "type": "train",
+        "date": "2023-11-06"
+    },
+    {
+        "id":"4s5s69s6d6s",
+        "origin": "THR",
+        "dest": "AZD",
+        "type": "flight",
+        "date": "2023-11-06"
+    }
+]
