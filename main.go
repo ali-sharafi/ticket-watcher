@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -114,7 +113,7 @@ func setupEnv() {
 func SetupLogger() {
 
 	lumberjackLogger := &lumberjack.Logger{
-		Filename:   filepath.ToSlash("./log"),
+		Filename:   filepath.ToSlash("./logs/" + time.Now().Format("2006-01-02") + "_app.log"),
 		MaxSize:    1, // MB
 		MaxBackups: 10,
 		MaxAge:     30,   // days
@@ -125,7 +124,7 @@ func SetupLogger() {
 	multiWriter := io.MultiWriter(os.Stderr, lumberjackLogger)
 
 	logFormatter := new(logger.TextFormatter)
-	logFormatter.TimestampFormat = time.RFC1123Z // or RFC3339
+	logFormatter.TimestampFormat = time.RFC3339
 	logFormatter.FullTimestamp = true
 
 	logger.SetFormatter(logFormatter)
@@ -146,10 +145,10 @@ func notify(payload NotifPayload, travelId string) {
 	_, err := bot.Send(msg)
 
 	if err != nil {
-		log.Println("Error sending message to Telegram:", err)
+		logger.Error("Error sending message to Telegram:", err)
 	}
-	log.Println("notification message:", payload.Message)
-	log.Println("notification link:", payload.Link)
+	logger.Info("notification message:", payload.Message)
+	logger.Info("notification link:", payload.Link)
 }
 
 func alibaba(travel Travel) {
@@ -172,7 +171,7 @@ func checkTrainTickets(travel Travel) {
 		}
 		notify(notifPayload, travel.ID)
 	} else {
-		fmt.Println(fmt.Sprintf("There is not any trips for train from %s to %s on %s in alibaba", travel.Origin, travel.Destination, travel.Date))
+		logger.Info(fmt.Sprintf("There is not any trips for train from %s to %s on %s in alibaba", travel.Origin, travel.Destination, travel.Date))
 	}
 }
 
@@ -187,7 +186,7 @@ func checkFlightTickets(travel Travel) {
 		}
 		notify(notifPayload, travel.ID)
 	} else {
-		fmt.Println(fmt.Sprintf("There is not any trips for flight from %s to %s on %s in alibaba", travel.Origin, travel.Destination, travel.Date))
+		logger.Info(fmt.Sprintf("There is not any trips for flight from %s to %s on %s in alibaba", travel.Origin, travel.Destination, travel.Date))
 	}
 }
 
@@ -198,11 +197,11 @@ func getFlightTrips(token string) (tripsResponse AlibabaFlightTripsResponse, err
 		Get(url)
 
 	if err != nil {
-		log.Println("Error in get alibaba trips:", err)
+		logger.Error("Error in get alibaba trips:", err)
 		return
 	}
 	if err = json.Unmarshal(response.Body(), &tripsResponse); err != nil {
-		log.Println("Error parsing getTrainTrips API response:", err)
+		logger.Error("Error parsing getTrainTrips API response:", err)
 		return
 	}
 
@@ -218,14 +217,14 @@ func getFlightToken(travel Travel) (token string, err error) {
 		Post("https://ws.alibaba.ir/api/v1/flights/domestic/available")
 
 	if err != nil {
-		log.Println("Error get alibaba flight token:", err)
+		logger.Error("Error get alibaba flight token:", err)
 		return
 	}
 
 	var tokenResponse AlibabaTokenResponse
 
 	if err = json.Unmarshal(response.Body(), &tokenResponse); err != nil {
-		log.Println("Error getFlightToken parsing API response:", err)
+		logger.Error("Error getFlightToken parsing API response:", err)
 		return
 	}
 
@@ -258,11 +257,11 @@ func getTrainTrips(token string) (tripsResponse AlibabaTripsResponse, err error)
 		Get(url)
 
 	if err != nil {
-		log.Println("Error in get alibaba trips:", err)
+		logger.Error("Error in get alibaba trips:", err)
 		return
 	}
 	if err = json.Unmarshal(response.Body(), &tripsResponse); err != nil {
-		log.Println("Error parsing getTrainTrips API response:", err)
+		logger.Error("Error parsing getTrainTrips API response:", err)
 		return
 	}
 
@@ -278,14 +277,14 @@ func getTrainToken(travel Travel) (token string, err error) {
 		Post("https://ws.alibaba.ir/api/v2/train/available")
 
 	if err != nil {
-		log.Println("Error get alibaba token:", err)
+		logger.Error("Error get alibaba token:", err)
 		return
 	}
 
 	var tokenResponse AlibabaTokenResponse
 
 	if err = json.Unmarshal(response.Body(), &tokenResponse); err != nil {
-		log.Println("Error getTrainToken parsing API response:", err)
+		logger.Error("Error getTrainToken parsing API response:", err)
 		return
 	}
 
@@ -296,7 +295,7 @@ func getTrainToken(travel Travel) (token string, err error) {
 func getJalaliDate(gregorianDate string) string {
 	t, err := time.Parse("2006-01-02", gregorianDate)
 	if err != nil {
-		fmt.Println("Error:", err)
+		logger.Error("Error:", err)
 		return ""
 	}
 
