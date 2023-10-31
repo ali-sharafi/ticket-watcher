@@ -1,4 +1,4 @@
-module my-crypto-nobitex
+module ticket-watcher
 
 go 1.20
 
