@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"ticket-watcher/domain"
+
 	"github.com/erfanmomeniii/jalali"
 	"github.com/go-resty/resty/v2"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -16,47 +18,6 @@ import (
 	logger "github.com/sirupsen/logrus"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
-
-type Travel struct {
-	ID          string `json:"id"`
-	Origin      string `json:"origin"`
-	Destination string `json:"dest"`
-	Type        string `json:"type"`
-	Date        string `json:"date"`
-}
-
-type NotifPayload struct {
-	Message string
-	Link    string
-}
-
-type AlibabaTokenResponse struct {
-	Result struct {
-		RequestID string `json:"requestId"`
-	} `json:"result"`
-}
-
-type AlibabaTripsResponse struct {
-	Result struct {
-		Departing []AlibabaDepartingItem `json:"departing"`
-	} `json:"result"`
-}
-
-type AlibabaDepartingItem struct {
-	Seat          int    `json:"seat"`
-	DepartureDate string `json:"departureDateTime"`
-}
-
-type AlibabaFlightTripsResponse struct {
-	Result struct {
-		Departing []AlibabaDepartingFlightItem `json:"departing"`
-	} `json:"result"`
-}
-
-type AlibabaDepartingFlightItem struct {
-	Seat          int    `json:"seat"`
-	LeaveDateTime string `json:"leaveDateTime"`
-}
 
 var bot *tgbotapi.BotAPI
 
@@ -82,7 +43,7 @@ func run() {
 	}
 }
 
-func readTravelsData() (travels []Travel) {
+func readTravelsData() (travels []domain.Travel) {
 	jsonData, err := ioutil.ReadFile("data.json")
 	if err != nil {
 		logger.Error("Error reading file:", err)
@@ -132,7 +93,7 @@ func SetupLogger() {
 	logger.SetOutput(multiWriter)
 }
 
-func notify(payload NotifPayload, travelId string) {
+func notify(payload domain.NotifPayload, travelId string) {
 	inlineKeyboard := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonURL("View Ticket", payload.Link),
@@ -151,7 +112,7 @@ func notify(payload NotifPayload, travelId string) {
 	logger.Info("notification link:", payload.Link)
 }
 
-func alibaba(travel Travel) {
+func alibaba(travel domain.Travel) {
 	switch travel.Type {
 	case "train":
 		checkTrainTickets(travel)
@@ -160,12 +121,12 @@ func alibaba(travel Travel) {
 	}
 }
 
-func checkTrainTickets(travel Travel) {
+func checkTrainTickets(travel domain.Travel) {
 	token, _ := getTrainToken(travel)
 	tickets, _ := getTrainTrips(token)
 
 	if result, trip := isTrainTicketAvailable(tickets); result != false {
-		notifPayload := NotifPayload{
+		notifPayload := domain.NotifPayload{
 			Message: fmt.Sprintf(`Train Ticket found from: %s To %s on %s`, travel.Origin, travel.Destination, trip.DepartureDate),
 			Link:    fmt.Sprintf(`https://www.alibaba.ir/train/%s-%s?adult=1&child=0&ticketType=Family&isExclusive=false&infant=0&departing=%s`, travel.Origin, travel.Destination, getJalaliDate(travel.Date)),
 		}
@@ -175,12 +136,12 @@ func checkTrainTickets(travel Travel) {
 	}
 }
 
-func checkFlightTickets(travel Travel) {
+func checkFlightTickets(travel domain.Travel) {
 	token, _ := getFlightToken(travel)
 	tickets, _ := getFlightTrips(token)
 
 	if result, trip := isFlightTicketAvailable(tickets); result != false {
-		notifPayload := NotifPayload{
+		notifPayload := domain.NotifPayload{
 			Message: fmt.Sprintf(`Flight Ticket found from %s To %s on %s`, travel.Origin, travel.Destination, trip.LeaveDateTime),
 			Link:    fmt.Sprintf(`https://www.alibaba.ir/flights/%s-%s?adult=1&child=0&infant=0&departing=%s`, travel.Origin, travel.Destination, getJalaliDate(travel.Date)),
 		}
@@ -190,7 +151,7 @@ func checkFlightTickets(travel Travel) {
 	}
 }
 
-func getFlightTrips(token string) (tripsResponse AlibabaFlightTripsResponse, err error) {
+func getFlightTrips(token string) (tripsResponse domain.AlibabaFlightTripsResponse, err error) {
 	url := fmt.Sprintf(`https://ws.alibaba.ir/api/v1/flights/domestic/available/%s`, token)
 	response, err := resty.New().R().
 		SetHeader("Content-Type", "application/json").
@@ -208,7 +169,7 @@ func getFlightTrips(token string) (tripsResponse AlibabaFlightTripsResponse, err
 	return
 }
 
-func getFlightToken(travel Travel) (token string, err error) {
+func getFlightToken(travel domain.Travel) (token string, err error) {
 	payload := fmt.Sprintf(`{"departureDate": "%s", "destination": "%s", "origin": "%s", "adult": 1, "child": 0, "infant": 0}`, travel.Date, travel.Destination, travel.Origin)
 
 	response, err := resty.New().R().
@@ -221,7 +182,7 @@ func getFlightToken(travel Travel) (token string, err error) {
 		return
 	}
 
-	var tokenResponse AlibabaTokenResponse
+	var tokenResponse domain.AlibabaTokenResponse
 
 	if err = json.Unmarshal(response.Body(), &tokenResponse); err != nil {
 		logger.Error("Error getFlightToken parsing API response:", err)
@@ -232,25 +193,25 @@ func getFlightToken(travel Travel) (token string, err error) {
 	return
 }
 
-func isFlightTicketAvailable(trips AlibabaFlightTripsResponse) (bool, AlibabaDepartingFlightItem) {
+func isFlightTicketAvailable(trips domain.AlibabaFlightTripsResponse) (bool, domain.AlibabaDepartingFlightItem) {
 	for _, trip := range trips.Result.Departing {
 		if trip.Seat > 0 {
 			return true, trip
 		}
 	}
-	return false, AlibabaDepartingFlightItem{}
+	return false, domain.AlibabaDepartingFlightItem{}
 }
 
-func isTrainTicketAvailable(trips AlibabaTripsResponse) (bool, AlibabaDepartingItem) {
+func isTrainTicketAvailable(trips domain.AlibabaTripsResponse) (bool, domain.AlibabaDepartingItem) {
 	for _, trip := range trips.Result.Departing {
 		if trip.Seat > 0 {
 			return true, trip
 		}
 	}
-	return false, AlibabaDepartingItem{}
+	return false, domain.AlibabaDepartingItem{}
 }
 
-func getTrainTrips(token string) (tripsResponse AlibabaTripsResponse, err error) {
+func getTrainTrips(token string) (tripsResponse domain.AlibabaTripsResponse, err error) {
 	url := fmt.Sprintf(`https://ws.alibaba.ir/api/v2/train/available/%s`, token)
 	response, err := resty.New().R().
 		SetHeader("Content-Type", "application/json").
@@ -268,7 +229,7 @@ func getTrainTrips(token string) (tripsResponse AlibabaTripsResponse, err error)
 	return
 }
 
-func getTrainToken(travel Travel) (token string, err error) {
+func getTrainToken(travel domain.Travel) (token string, err error) {
 	payload := fmt.Sprintf(`{"departureDate": "%s", "destination": "%s", "origin": "%s", "isExclusiveCompartment": false, "passengerCount": 1, "ticketType": "Family"}`, travel.Date, travel.Destination, travel.Origin)
 
 	response, err := resty.New().R().
@@ -281,7 +242,7 @@ func getTrainToken(travel Travel) (token string, err error) {
 		return
 	}
 
-	var tokenResponse AlibabaTokenResponse
+	var tokenResponse domain.AlibabaTokenResponse
 
 	if err = json.Unmarshal(response.Body(), &tokenResponse); err != nil {
 		logger.Error("Error getTrainToken parsing API response:", err)
