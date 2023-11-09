@@ -40,3 +40,8 @@ type AlibabaDepartingFlightItem struct {
 	Seat          int    `json:"seat"`
 	LeaveDateTime string `json:"leaveDateTime"`
 }
+
+type Province struct {
+	Name string `json:"name"`
+	Code string `json:"code"`
+}
