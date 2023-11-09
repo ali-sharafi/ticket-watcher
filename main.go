@@ -32,6 +32,7 @@ func run() {
 			travels := utils.ReadTravelsData()
 			for _, travel := range travels {
 				alibaba(travel)
+				time.Sleep(30 * time.Second)
 			}
 		}
 	}
