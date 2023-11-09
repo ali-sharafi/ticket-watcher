@@ -1,10 +1,14 @@
 package utils
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
+	"math/rand"
 	"os"
 	"path/filepath"
+	"ticket-watcher/domain"
 	"time"
 
 	"github.com/erfanmomeniii/jalali"
@@ -48,4 +52,44 @@ func GetJalaliDate(gregorianDate string) string {
 	jalaliDate := fmt.Sprintf(`%d-%d-%d`, j.Year(), j.Month(), j.Day())
 
 	return jalaliDate
+}
+
+func GenerateUniqueID() string {
+	timestamp := time.Now().UnixNano()
+	randomNum := rand.Intn(100000)
+	uniqueID := fmt.Sprintf("%d%d", timestamp, randomNum)
+	return uniqueID
+}
+
+func ReadTravelsData() (travels []domain.Travel) {
+	jsonData, err := ioutil.ReadFile("data.json")
+	if err != nil {
+		file, err := os.Create("data.json")
+		if err != nil {
+			Logger.Error("Error createing file:", err)
+			return
+		}
+		defer file.Close()
+		return
+	}
+
+	err = json.Unmarshal(jsonData, &travels)
+	if err != nil {
+		Logger.Error("Error decoding JSON:", err)
+	}
+	return
+}
+
+func StoreTravelsData(travels []domain.Travel) {
+	fileContent, err := json.Marshal(travels)
+	if err != nil {
+		Logger.Error("Some error occurred while encoding travels: ", err)
+		return
+	}
+
+	err = ioutil.WriteFile("data.json", fileContent, 0644)
+	if err != nil {
+		Logger.Error("Some error occurred while storing travels: ", err)
+		return
+	}
 }

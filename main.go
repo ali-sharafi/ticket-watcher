@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"time"
 
 	"ticket-watcher/domain"
@@ -30,26 +29,12 @@ func run() {
 	for {
 		select {
 		case <-ticker.C:
-			travels := readTravelsData()
+			travels := utils.ReadTravelsData()
 			for _, travel := range travels {
 				alibaba(travel)
 			}
 		}
 	}
-}
-
-func readTravelsData() (travels []domain.Travel) {
-	jsonData, err := ioutil.ReadFile("data.json")
-	if err != nil {
-		logger.Error("Error reading file:", err)
-		return
-	}
-
-	err = json.Unmarshal(jsonData, &travels)
-	if err != nil {
-		logger.Error("Error decoding JSON:", err)
-	}
-	return
 }
 
 func setupEnv() {
